@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -53,4 +54,5 @@ if uploaded_file:
         new_df['Predicted_Result'] = np.where(predictions == 1, 'Fail', 'Pass')
         st.dataframe(new_df[['Test_Case_ID', 'Module_Name', 'Predicted_Result']])
 
-        csv = new_df.to_csv(index=False).encode('utf
+        csv = new_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Predictions", data=csv, file_name="predicted_results.csv")
