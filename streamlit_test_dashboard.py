@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -35,8 +34,11 @@ if uploaded_file:
     shap_values = explainer.shap_values(X)
 
     st.subheader("🔍 Feature Importance (SHAP)")
-    shap.summary_plot(shap_values[1], X, show=False)
-    st.pyplot(bbox_inches='tight')
+    try:
+        shap.summary_plot(shap_values[1], X, show=False)
+        st.pyplot(bbox_inches='tight')
+    except Exception as e:
+        st.error(f"Could not display SHAP plot: {e}")
 
     st.subheader("📈 Predict on New Data")
     predict_file = st.file_uploader("Upload new data to predict (same columns)", type="csv", key="predict")
@@ -51,5 +53,4 @@ if uploaded_file:
         new_df['Predicted_Result'] = np.where(predictions == 1, 'Fail', 'Pass')
         st.dataframe(new_df[['Test_Case_ID', 'Module_Name', 'Predicted_Result']])
 
-        csv = new_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Predictions", data=csv, file_name="predicted_results.csv")
+        csv = new_df.to_csv(index=False).encode('utf
