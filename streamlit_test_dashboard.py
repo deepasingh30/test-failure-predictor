@@ -2,57 +2,62 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import shap
-import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import plotly.express as px
 
-st.set_page_config(page_title="Test Failure Predictor", layout="wide")
-st.title("Test Failure Prediction Dashboard")
+st.set_page_config(page_title="Test Failure Insight Dashboard", layout="wide")
+st.title("📉 Test Failure Insight & Prediction")
 
-uploaded_file = st.file_uploader("Upload test results CSV", type="csv")
+uploaded_file = st.file_uploader("Upload 'TestFailures_Report.xlsx'", type=["xlsx"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    df = pd.read_excel(uploaded_file, sheet_name='Result')
+    st.subheader("📄 Raw Failure Data Preview")
+    st.dataframe(df.head())
 
-    # Encode categorical fields
-    df['Result'] = df['Result'].map({'Pass': 0, 'Fail': 1})
-    df['Module_Encoded'] = LabelEncoder().fit_transform(df['Module_Name'])
-    df['Error_Encoded'] = LabelEncoder().fit_transform(df['Error_Message'].fillna('None'))
+    # Display top exceptions
+    st.subheader("⚠️ Top Failure Exceptions")
+    top_errors = df['Exception'].value_counts().head(10).reset_index()
+    top_errors.columns = ['Exception', 'Count']
+    fig_ex = px.bar(top_errors, x='Count', y='Exception', orientation='h', title="Most Frequent Exceptions")
+    st.plotly_chart(fig_ex, use_container_width=True)
 
-    features = ['Module_Encoded', 'Code_Churn', 'Run_Count_Since_Fail', 'Error_Encoded']
-    X = df[features]
-    y = df['Result']
+    # Display top failure-prone feature files
+    st.subheader("🧩 Feature Files Causing Most Failures")
+    top_features = df['Feature File Name'].value_counts().head(10).reset_index()
+    top_features.columns = ['Feature File Name', 'Failure Count']
+    fig_feat = px.bar(top_features, x='Failure Count', y='Feature File Name', orientation='h', title="Top Failing Features")
+    st.plotly_chart(fig_feat, use_container_width=True)
 
-    # Train model
+    # Predictive Modeling: Can we predict the Feature File Name from Exception
+    st.subheader("🤖 Predicting Failure Feature from Exception Text")
+    df = df.dropna(subset=['Exception', 'Feature File Name'])
+
+    X = df['Exception']
+    y = df['Feature File Name']
+
+    vectorizer = CountVectorizer(max_features=1000)
+    X_vec = vectorizer.fit_transform(X)
+
+    le = LabelEncoder()
+    y_enc = le.fit_transform(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_vec, y_enc, test_size=0.2, random_state=42)
     model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X, y)
+    model.fit(X_train, y_train)
 
-    st.success("Model trained on uploaded data ✅")
+    acc = model.score(X_test, y_test)
+    st.success(f"Model Accuracy on Test Data: {acc:.2f}")
 
-    # SHAP values
-    explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X)
-
-    st.subheader("🔍 Feature Importance (SHAP)")
-    try:
-        shap.summary_plot(shap_values, X, show=False)
-        st.pyplot(bbox_inches='tight')
-    except Exception as e:
-        st.error(f"Could not display SHAP plot: {e}")
-
-    st.subheader("📈 Predict on New Data")
-    predict_file = st.file_uploader("Upload new data to predict (same columns)", type="csv", key="predict")
-
-    if predict_file:
-        new_df = pd.read_csv(predict_file)
-        new_df['Module_Encoded'] = LabelEncoder().fit_transform(new_df['Module_Name'])
-        new_df['Error_Encoded'] = LabelEncoder().fit_transform(new_df['Error_Message'].fillna('None'))
-        new_X = new_df[features]
-
-        predictions = model.predict(new_X)
-        new_df['Predicted_Result'] = np.where(predictions == 1, 'Fail', 'Pass')
-        st.dataframe(new_df[['Test_Case_ID', 'Module_Name', 'Predicted_Result']])
-
-        csv = new_df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download Predictions", data=csv, file_name="predicted_results.csv")
+    # Show predictions
+    st.subheader("🔍 Predict Feature File from a New Exception")
+    user_input = st.text_area("Enter an exception message:")
+    if user_input:
+        input_vec = vectorizer.transform([user_input])
+        prediction = model.predict(input_vec)
+        predicted_feature = le.inverse_transform(prediction)[0]
+        st.info(f"📂 Predicted Feature File: **{predicted_feature}**")
