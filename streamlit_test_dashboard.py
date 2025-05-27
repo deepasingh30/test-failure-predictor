@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 
 st.set_page_config(page_title="Test Failure Predictor", layout="wide")
-st.title("🧪 Test Failure Prediction Dashboard")
+st.title("Test Failure Prediction Dashboard")
 
 uploaded_file = st.file_uploader("Upload test results CSV", type="csv")
 
@@ -35,7 +35,7 @@ if uploaded_file:
 
     st.subheader("🔍 Feature Importance (SHAP)")
     try:
-        shap.summary_plot(shap_values[1], X, show=False)
+        shap.summary_plot(shap_values, X, show=False)
         st.pyplot(bbox_inches='tight')
     except Exception as e:
         st.error(f"Could not display SHAP plot: {e}")
